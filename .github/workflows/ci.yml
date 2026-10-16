@@ -1,0 +1,63 @@
+# Continuous integration: every push (and every pull request into main)
+# runs the unit tests of every module and builds the app. A failure shows a red ✗ on the commit.
+# The built debug APK is kept as a downloadable artifact for 14 days.
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the older, still-running build
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run unit tests
+        run: |
+          chmod +x gradlew
+          # :core:domain is plain Kotlin ("test"), the Android modules use "testDebugUnitTest"
+          ./gradlew :core:domain:test testDebugUnitTest
+
+      - name: Build debug APK
+        env:
+          VERSION_NAME: 0.0.0-ci.${{ github.run_number }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: HarishGallery-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - name: Upload test reports (when tests fail)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-${{ github.run_number }}
+          path: "**/build/reports/tests/"
+          retention-days: 14

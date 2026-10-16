@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings may be backed up; the Locked folder must never leave the phone. -->
+<full-backup-content>
+    <exclude domain="file" path="locked/" />
+</full-backup-content>
